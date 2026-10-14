@@ -1,0 +1,73 @@
+# ==========================================
+# Frontend & Node.js
+# ==========================================
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# Rust & Cargo (Tauri v2 Backend)
+# ==========================================
+target/
+src-tauri/target/
+src-tauri/WixTools/
+src-tauri/gen/schemas/
+**/*.rs.bk
+
+# ==========================================
+# Environment & Secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# ==========================================
+# Operating System Files
+# ==========================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ==========================================
+# IDE & Editor Specific
+# ==========================================
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# JetBrains (IntelliJ, WebStorm, RustRover, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Other editors
+*.sw?
+*~
+*.sublime-project
+*.sublime-workspace
