@@ -47,10 +47,17 @@ export const messages = {
     refresh: "刷新",
     langSwitch: "English",
 
-    // 运行时概览
+    // 运行时概览与管理器安装
     runtimeDesc: "由 {manager} 管理与分发，切换后自动更新终端及全局默认版本。",
     managerNotDetected: "未检测到 {manager}",
     managerNotDetectedDesc: "请确认 {manager} 已正确安装并配置在您的 Shell 环境中。",
+    managerNotInstalledTitle: "未检测到 {manager} 环境管理器",
+    managerNotInstalledDesc: "当前系统尚未安装 {manager}，无法管理与切换 {runtime} 版本。点击下方按钮即可全自动一键安装。",
+    oneClickInstallManager: "一键安装 {manager}",
+    installingManager: "正在安装 {manager}，请稍候...",
+    installManagerSuccessNotice: "{manager} 已成功安装！",
+    installManagerFailedNotice: "安装 {manager} 失败: {msg}",
+    officialInstallCmdTip: "官方安装脚本",
 
     // 卡片 1: 当前版本
     currentVersionTitle: "当前使用版本",
@@ -131,6 +138,24 @@ export const messages = {
     profileSaveFailedNotice: "保存预设失败",
     profileDeletedNotice: "预设已删除",
     profileDeleteFailedNotice: "删除预设失败",
+
+    // Node.js 镜像源管理
+    nodeMirrorsCardTitle: "Node.js 镜像源与加速配置",
+    nodeMirrorsDesc: "一键配置 npm registry 和 nvm node 下载镜像，大幅提升依赖安装与 Node 版本下载速度。",
+    quickSetChinaMirrors: "⚡ 一键换国内镜像 (淘宝源)",
+    quickRestoreOfficial: "🌐 恢复官方默认源",
+    npmRegistryLabel: "npm 镜像源 (registry)",
+    nvmMirrorLabel: "nvm Node 下载源 (dist mirror)",
+    currentSetting: "当前：",
+    mirrorTaobao: "淘宝源",
+    mirrorTencent: "腾讯云",
+    mirrorOfficial: "官方源",
+    customPlaceholder: "输入自定义镜像 URL...",
+    applyBtn: "设置",
+    npmRegistrySuccessNotice: "npm 镜像已成功设置为: {url}",
+    nvmMirrorSuccessNotice: "nvm 镜像已成功设置为: {url}",
+    allChinaMirrorsSuccessNotice: "已成功将 npm 与 nvm 切换为淘宝/npmmirror 加速源！",
+    allOfficialMirrorsSuccessNotice: "已恢复 npm 与 nvm 官方源！",
   },
   en: {
     // Sidebar
@@ -149,10 +174,17 @@ export const messages = {
     refresh: "Refresh",
     langSwitch: "中文",
 
-    // Runtime overview
+    // Runtime overview & manager installation
     runtimeDesc: "Managed by {manager}. Switching updates terminal and global default versions.",
     managerNotDetected: "{manager} Not Detected",
     managerNotDetectedDesc: "Please make sure {manager} is installed and configured in your shell environment.",
+    managerNotInstalledTitle: "{manager} Not Detected",
+    managerNotInstalledDesc: "{manager} is not installed on this system. You can install it automatically with one click below.",
+    oneClickInstallManager: "Install {manager} with One Click",
+    installingManager: "Installing {manager}, please wait...",
+    installManagerSuccessNotice: "{manager} has been successfully installed!",
+    installManagerFailedNotice: "Failed to install {manager}: {msg}",
+    officialInstallCmdTip: "Official install command",
 
     // Card 1: Current version
     currentVersionTitle: "Active Version",
@@ -233,6 +265,24 @@ export const messages = {
     profileSaveFailedNotice: "Failed to save profile",
     profileDeletedNotice: "Profile deleted",
     profileDeleteFailedNotice: "Failed to delete profile",
+
+    // Node.js Mirrors Management
+    nodeMirrorsCardTitle: "Node.js Mirrors & Acceleration",
+    nodeMirrorsDesc: "One-click switch for npm registry and nvm download mirror for faster package and version downloads.",
+    quickSetChinaMirrors: "⚡ Set China Mirrors (Taobao)",
+    quickRestoreOfficial: "🌐 Restore Official Mirrors",
+    npmRegistryLabel: "npm Registry",
+    nvmMirrorLabel: "nvm Node Mirror (dist)",
+    currentSetting: "Current: ",
+    mirrorTaobao: "Taobao",
+    mirrorTencent: "Tencent",
+    mirrorOfficial: "Official",
+    customPlaceholder: "Enter custom mirror URL...",
+    applyBtn: "Set",
+    npmRegistrySuccessNotice: "npm registry set to: {url}",
+    nvmMirrorSuccessNotice: "nvm node mirror set to: {url}",
+    allChinaMirrorsSuccessNotice: "Successfully switched npm and nvm to Taobao/npmmirror acceleration mirrors!",
+    allOfficialMirrorsSuccessNotice: "Successfully restored npm and nvm to official mirrors!",
   },
 };
 

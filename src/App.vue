@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEnvManager } from "./composables/useEnvManager";
 import type { Profile, RuntimeInfo } from "./types";
@@ -26,22 +26,102 @@ const startDrag = async (e: MouseEvent) => {
 const {
   runtimes,
   profiles,
+  nodeMirrors,
+  settingMirror,
   loading,
   switching,
   installing,
+  uninstalling,
+  installingManager,
   fetchRuntimes,
+  fetchNodeMirrors,
+  setNpmRegistry,
+  setNvmMirror,
+  setBothNodeMirrors,
   switchVersion,
   installVersion,
-  uninstalling,
   uninstallVersion,
+  installManager,
   fetchProfiles,
   saveProfile,
   deleteProfile,
   applyProfile,
 } = useEnvManager();
 
+// 自定义镜像输入
+const customNpmRegistry = ref("");
+const customNvmMirror = ref("");
+
+// 快捷镜像切换方法
+const handleSetAllChinaMirrors = async () => {
+  const res = await setBothNodeMirrors(
+    "https://registry.npmmirror.com/",
+    "https://npmmirror.com/mirrors/node/"
+  );
+  if (res.success) {
+    showNotification(t("allChinaMirrorsSuccessNotice"), true);
+  } else {
+    showNotification(res.message, false);
+  }
+};
+
+const handleRestoreOfficialMirrors = async () => {
+  const res = await setBothNodeMirrors(
+    "https://registry.npmjs.org/",
+    "https://nodejs.org/dist"
+  );
+  if (res.success) {
+    showNotification(t("allOfficialMirrorsSuccessNotice"), true);
+  } else {
+    showNotification(res.message, false);
+  }
+};
+
+const handleSetNpmRegistry = async (url: string) => {
+  const target = url.trim();
+  if (!target) return;
+  const res = await setNpmRegistry(target);
+  if (res.success) {
+    showNotification(t("npmRegistrySuccessNotice", { url: target }), true);
+    customNpmRegistry.value = "";
+  } else {
+    showNotification(res.message, false);
+  }
+};
+
+const handleSetNvmMirror = async (url: string) => {
+  const target = url.trim();
+  if (!target) return;
+  const res = await setNvmMirror(target);
+  if (res.success) {
+    showNotification(t("nvmMirrorSuccessNotice", { url: target }), true);
+    customNvmMirror.value = "";
+  } else {
+    showNotification(res.message, false);
+  }
+};
+
 // 输入的新版本号
 const customInstallVersion = ref<string>("");
+
+// 获取管理器的官方一键安装命令
+const getManagerInstallCmd = (manager: string) => {
+  if (manager === "sdkman") return 'curl -s "https://get.sdkman.io" | bash';
+  if (manager === "nvm") return 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash';
+  if (manager === "uv") return 'curl -LsSf https://astral.sh/uv/install.sh | sh';
+  return "";
+};
+
+// 一键安装环境管理器处理函数
+const handleInstallManager = async (manager: string) => {
+  showNotification(t("installingManager", { manager }), true);
+  const result = await installManager(manager);
+  if (result.success) {
+    showNotification(t("installManagerSuccessNotice", { manager }), true);
+  } else {
+    showNotification(t("installManagerFailedNotice", { manager, msg: result.message }), false);
+  }
+};
 
 // 滚动状态监测：未滚动或切换面板时滚动条保持隐形，滚动时显现并在停止后淡出
 const isScrolling = ref(false);
@@ -172,11 +252,17 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
 onMounted(async () => {
   window.addEventListener("keydown", handleKeyDown);
-  await Promise.all([fetchRuntimes(), fetchProfiles()]);
+  await Promise.all([fetchRuntimes(), fetchProfiles(), fetchNodeMirrors()]);
 
   // 默认选中第一个可用的运行时，或者 java
   if (runtimes.value.length > 0) {
     selectedNav.value = runtimes.value[0].name;
+  }
+});
+
+watch(selectedNav, (newVal) => {
+  if (newVal === "node") {
+    fetchNodeMirrors();
   }
 });
 
@@ -267,7 +353,7 @@ const currentRuntime = computed<RuntimeInfo | undefined>(() => {
 
 // 刷新处理
 const handleRefresh = async () => {
-  await Promise.all([fetchRuntimes(), fetchProfiles()]);
+  await Promise.all([fetchRuntimes(), fetchProfiles(), fetchNodeMirrors()]);
   showNotification(t("refreshedNotice"), true);
 };
 
@@ -600,18 +686,71 @@ const handleDeleteProfile = async (id: string) => {
             </div>
           </div>
 
-          <!-- 警告：如果管理器未检测到 -->
+          <!-- 管理器未安装时：展示一键安装卡片 -->
           <div
             v-if="!currentRuntime.is_available"
-            class="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-2.5"
+            class="bg-white dark:bg-[#252528] rounded-lg border border-[#e5e5ea] dark:border-[#38383a] shadow-xs p-5 text-center space-y-3.5"
           >
-            <span class="text-sm leading-none">⚠️</span>
+            <div
+              class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-xs mx-auto"
+              :class="currentRuntime.name === 'java' ? 'bg-blue-500/10 text-blue-500' : currentRuntime.name === 'node' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'"
+            >
+              <span>{{ currentRuntime.icon }}</span>
+            </div>
+
             <div>
-              <div class="font-semibold text-[12px]">{{ t("managerNotDetected", { manager: currentRuntime.manager }) }}</div>
-              <div class="mt-0.5 opacity-90 text-[11px]">{{ t("managerNotDetectedDesc", { manager: currentRuntime.manager }) }}</div>
+              <h3 class="text-[14px] font-bold text-[#1d1d1f] dark:text-[#f5f5f7]">
+                {{ t("managerNotInstalledTitle", { manager: currentRuntime.manager }) }}
+              </h3>
+              <p class="text-[11px] text-[#8e8e93] mt-1 max-w-md mx-auto leading-relaxed">
+                {{ t("managerNotInstalledDesc", { manager: currentRuntime.manager, runtime: currentRuntime.display_name }) }}
+              </p>
+            </div>
+
+            <!-- 一键安装按钮 -->
+            <div class="pt-1">
+              <button
+                type="button"
+                :disabled="Boolean(installingManager[currentRuntime.manager])"
+                @click="handleInstallManager(currentRuntime.manager)"
+                class="px-4 py-2 bg-[#007aff] hover:bg-blue-600 text-white rounded-lg text-[12px] font-medium shadow-xs transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 mx-auto cursor-pointer"
+              >
+                <svg
+                  v-if="installingManager[currentRuntime.manager]"
+                  class="w-3.5 h-3.5 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <svg
+                  v-else
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                <span>
+                  {{ installingManager[currentRuntime.manager] ? t("installingManager", { manager: currentRuntime.manager }) : t("oneClickInstallManager", { manager: currentRuntime.manager }) }}
+                </span>
+              </button>
+            </div>
+
+            <!-- 官方安装命令提示 -->
+            <div class="pt-1.5 border-t border-[#f2f2f7] dark:border-[#2c2c2e] text-[10px] text-[#8e8e93]">
+              <span>{{ t("officialInstallCmdTip") }}: </span>
+              <code class="px-1.5 py-0.5 bg-black/5 dark:bg-white/10 rounded font-mono text-[10px] select-all">
+                {{ getManagerInstallCmd(currentRuntime.manager) }}
+              </code>
             </div>
           </div>
 
+          <!-- 管理器已安装时：正常展示所有卡片 -->
+          <template v-else>
           <!-- macOS 风格的分组卡片 1: 当前版本状态 -->
           <div class="bg-white dark:bg-[#252528] rounded-lg border border-[#e5e5ea] dark:border-[#38383a] shadow-xs overflow-hidden">
             <div class="px-3.5 py-2 flex items-center justify-between border-b border-[#f2f2f7] dark:border-[#2c2c2e]">
@@ -632,6 +771,172 @@ const handleDeleteProfile = async (id: string) => {
             <div class="px-3.5 py-1.5 bg-neutral-50/50 dark:bg-white/[0.02] text-[11px] text-[#8e8e93] flex items-center justify-between">
               <span>{{ t("managerLabel") }}</span>
               <span class="font-mono text-[#1d1d1f] dark:text-[#f5f5f7]">{{ currentRuntime.manager }}</span>
+            </div>
+          </div>
+
+          <!-- Node.js 专属: 镜像源配置卡片 (npm registry & nvm mirror) -->
+          <div
+            v-if="currentRuntime.name === 'node'"
+            class="bg-white dark:bg-[#252528] rounded-lg border border-[#e5e5ea] dark:border-[#38383a] shadow-xs overflow-hidden"
+          >
+            <!-- 标题栏 + 一键切换快捷按钮 -->
+            <div class="px-3.5 py-2.5 border-b border-[#f2f2f7] dark:border-[#2c2c2e] flex items-center justify-between flex-wrap gap-2">
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm">⚡</span>
+                <span class="font-medium text-[12px] text-[#1d1d1f] dark:text-[#f5f5f7]">
+                  {{ t("nodeMirrorsCardTitle") }}
+                </span>
+              </div>
+              
+              <div class="flex items-center gap-1.5">
+                <!-- 一键国内镜像 (淘宝源) -->
+                <button
+                  type="button"
+                  :disabled="settingMirror"
+                  @click="handleSetAllChinaMirrors"
+                  class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] text-[10px] font-medium shadow-xs transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                >
+                  <span v-if="settingMirror" class="animate-spin">⏳</span>
+                  <span v-else>🚀</span>
+                  <span>{{ t("quickSetChinaMirrors") }}</span>
+                </button>
+
+                <!-- 一键恢复官方源 -->
+                <button
+                  type="button"
+                  :disabled="settingMirror"
+                  @click="handleRestoreOfficialMirrors"
+                  class="px-2 py-1 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-[#1d1d1f] dark:text-[#f5f5f7] rounded-[5px] text-[10px] font-medium transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{{ t("quickRestoreOfficial") }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="p-3.5 space-y-3 divide-y divide-[#f2f2f7] dark:divide-[#2c2c2e]">
+              <!-- 1. npm Registry -->
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="font-medium text-[#1d1d1f] dark:text-[#f5f5f7] flex items-center gap-1">
+                    <span>📦</span>
+                    <span>{{ t("npmRegistryLabel") }}</span>
+                  </span>
+                  <span class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 truncate max-w-[240px]">
+                    {{ nodeMirrors.npm_registry || 'https://registry.npmjs.org/' }}
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    :disabled="settingMirror"
+                    @click="handleSetNpmRegistry('https://registry.npmmirror.com/')"
+                    class="px-2 py-0.5 text-[10px] rounded-[5px] border border-[#d1d1d6] dark:border-[#38383a] hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                    :class="nodeMirrors.npm_registry?.includes('npmmirror') ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 font-semibold' : ''"
+                  >
+                    <span>淘宝/npmmirror</span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="settingMirror"
+                    @click="handleSetNpmRegistry('https://mirrors.cloud.tencent.com/npm/')"
+                    class="px-2 py-0.5 text-[10px] rounded-[5px] border border-[#d1d1d6] dark:border-[#38383a] hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                    :class="nodeMirrors.npm_registry?.includes('tencent') ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 font-semibold' : ''"
+                  >
+                    <span>腾讯云</span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="settingMirror"
+                    @click="handleSetNpmRegistry('https://registry.npmjs.org/')"
+                    class="px-2 py-0.5 text-[10px] rounded-[5px] border border-[#d1d1d6] dark:border-[#38383a] hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                    :class="nodeMirrors.npm_registry?.includes('npmjs.org') ? 'bg-neutral-100 dark:bg-neutral-800 text-[#1d1d1f] dark:text-[#f5f5f7] border-neutral-400 dark:border-neutral-600 font-semibold' : ''"
+                  >
+                    <span>官方源 (npmjs)</span>
+                  </button>
+                </div>
+
+                <!-- 自定义 npm 输入 -->
+                <div class="flex items-center gap-1.5 pt-0.5">
+                  <input
+                    v-model="customNpmRegistry"
+                    type="text"
+                    :placeholder="t('customPlaceholder')"
+                    class="flex-1 px-2 py-0.5 bg-[#f2f2f7] dark:bg-[#1c1c1e] text-[10px] text-[#1d1d1f] dark:text-[#f5f5f7] placeholder-[#8e8e93] rounded-[5px] border border-transparent focus:border-emerald-500/50 focus:bg-white dark:focus:bg-[#2c2c2e] focus:outline-none transition-all font-mono h-6"
+                    @keydown.enter="handleSetNpmRegistry(customNpmRegistry)"
+                  />
+                  <button
+                    type="button"
+                    :disabled="!customNpmRegistry.trim() || settingMirror"
+                    @click="handleSetNpmRegistry(customNpmRegistry)"
+                    class="px-2 py-0.5 bg-[#007aff] text-white rounded-[5px] text-[10px] font-medium hover:bg-blue-600 disabled:opacity-40 transition-all shadow-xs h-6 cursor-pointer"
+                  >
+                    {{ t("applyBtn") }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 2. nvm Node 镜像 -->
+              <div class="space-y-1.5 pt-3">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="font-medium text-[#1d1d1f] dark:text-[#f5f5f7] flex items-center gap-1">
+                    <span>⬇️</span>
+                    <span>{{ t("nvmMirrorLabel") }}</span>
+                  </span>
+                  <span class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 truncate max-w-[240px]">
+                    {{ nodeMirrors.nvm_node_mirror || 'https://nodejs.org/dist' }}
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    :disabled="settingMirror"
+                    @click="handleSetNvmMirror('https://npmmirror.com/mirrors/node/')"
+                    class="px-2 py-0.5 text-[10px] rounded-[5px] border border-[#d1d1d6] dark:border-[#38383a] hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                    :class="nodeMirrors.nvm_node_mirror?.includes('npmmirror') ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 font-semibold' : ''"
+                  >
+                    <span>淘宝/npmmirror</span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="settingMirror"
+                    @click="handleSetNvmMirror('https://mirrors.cloud.tencent.com/nodejs-release/')"
+                    class="px-2 py-0.5 text-[10px] rounded-[5px] border border-[#d1d1d6] dark:border-[#38383a] hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                    :class="nodeMirrors.nvm_node_mirror?.includes('tencent') ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 font-semibold' : ''"
+                  >
+                    <span>腾讯云</span>
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="settingMirror"
+                    @click="handleSetNvmMirror('https://nodejs.org/dist')"
+                    class="px-2 py-0.5 text-[10px] rounded-[5px] border border-[#d1d1d6] dark:border-[#38383a] hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                    :class="nodeMirrors.nvm_node_mirror?.includes('nodejs.org') ? 'bg-neutral-100 dark:bg-neutral-800 text-[#1d1d1f] dark:text-[#f5f5f7] border-neutral-400 dark:border-neutral-600 font-semibold' : ''"
+                  >
+                    <span>官方源 (nodejs.org)</span>
+                  </button>
+                </div>
+
+                <!-- 自定义 nvm 输入 -->
+                <div class="flex items-center gap-1.5 pt-0.5">
+                  <input
+                    v-model="customNvmMirror"
+                    type="text"
+                    :placeholder="t('customPlaceholder')"
+                    class="flex-1 px-2 py-0.5 bg-[#f2f2f7] dark:bg-[#1c1c1e] text-[10px] text-[#1d1d1f] dark:text-[#f5f5f7] placeholder-[#8e8e93] rounded-[5px] border border-transparent focus:border-emerald-500/50 focus:bg-white dark:focus:bg-[#2c2c2e] focus:outline-none transition-all font-mono h-6"
+                    @keydown.enter="handleSetNvmMirror(customNvmMirror)"
+                  />
+                  <button
+                    type="button"
+                    :disabled="!customNvmMirror.trim() || settingMirror"
+                    @click="handleSetNvmMirror(customNvmMirror)"
+                    class="px-2 py-0.5 bg-[#007aff] text-white rounded-[5px] text-[10px] font-medium hover:bg-blue-600 disabled:opacity-40 transition-all shadow-xs h-6 cursor-pointer"
+                  >
+                    {{ t("applyBtn") }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -803,6 +1108,7 @@ const handleDeleteProfile = async (id: string) => {
 
             </div>
           </div>
+          </template>
 
         </div>
 

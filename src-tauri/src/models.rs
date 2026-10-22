@@ -36,6 +36,12 @@ pub struct Profile {
     pub python_version: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct NodeMirrors {
+    pub npm_registry: String,
+    pub nvm_node_mirror: String,
+}
+
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct AppState {

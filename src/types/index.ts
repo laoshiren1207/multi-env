@@ -29,3 +29,8 @@ export interface Profile {
   node_version: string | null;
   python_version: string | null;
 }
+
+export interface NodeMirrors {
+  npm_registry: string;
+  nvm_node_mirror: string;
+}

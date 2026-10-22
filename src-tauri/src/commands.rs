@@ -4,7 +4,7 @@ use crate::managers::sdkman::SdkmanManager;
 use crate::managers::nvm::NvmManager;
 use crate::managers::uv::UvManager;
 use crate::managers::EnvManager;
-use crate::models::{Profile, RuntimeInfo, SwitchResult};
+use crate::models::{NodeMirrors, Profile, RuntimeInfo, SwitchResult};
 
 /// 异步获取所有运行时信息，不阻塞 Tauri UI
 #[tauri::command]
@@ -106,6 +106,197 @@ pub async fn uninstall_version(runtime: String, version: String) -> Result<Strin
     })
     .await
     .map_err(|e| format!("Task execution error: {}", e))?
+}
+
+/// 异步一键安装环境管理器 (SDKMAN, nvm, uv)
+#[tauri::command]
+pub async fn install_manager(manager: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let cmd = match manager.as_str() {
+            "sdkman" => "curl -s \"https://get.sdkman.io\" | bash",
+            "nvm" => "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash",
+            "uv" => "curl -LsSf https://astral.sh/uv/install.sh | sh",
+            _ => return Err(format!("未知的环境管理器: {}", manager)),
+        };
+
+        log::info!("Installing manager {}: running {}", manager, cmd);
+        let output = crate::shell::ShellExecutor::run_command(cmd)
+            .map_err(|e| format!("安装 {} 失败: {}", manager, e))?;
+
+        // 验证安装是否成功
+        let home = dirs::home_dir().unwrap_or_default();
+        let ok = match manager.as_str() {
+            "sdkman" => home.join(".sdkman/bin/sdkman-init.sh").exists() || home.join(".sdkman/candidates/java").exists(),
+            "nvm" => home.join(".nvm/nvm.sh").exists(),
+            "uv" => home.join(".local/bin/uv").exists() || home.join(".cargo/bin/uv").exists() || std::path::Path::new("/opt/homebrew/bin/uv").exists() || crate::shell::ShellExecutor::run_command("export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:$PATH\" && uv --version").is_ok(),
+            _ => false,
+        };
+
+        if ok {
+            Ok(format!("{} 安装完成！", manager))
+        } else {
+            Ok(format!("安装命令已执行: {}", output))
+        }
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))?
+}
+
+// ── Node.js Mirrors Management (npm registry & nvm mirror) ─────────
+
+/// 获取当前 npm registry 和 nvm node mirror
+#[tauri::command]
+pub async fn get_node_mirrors() -> Result<NodeMirrors, String> {
+    tokio::task::spawn_blocking(|| {
+        let home = dirs::home_dir().unwrap_or_default();
+
+        // 1. 读取 npm registry
+        let mut npm_registry = String::new();
+        let npmrc_path = home.join(".npmrc");
+        if npmrc_path.exists() {
+            if let Ok(content) = fs::read_to_string(&npmrc_path) {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("registry=") || trimmed.starts_with("registry =") {
+                        if let Some((_, val)) = trimmed.split_once('=') {
+                            npm_registry = val.trim().to_string();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if npm_registry.is_empty() {
+            if let Ok(reg) = crate::shell::ShellExecutor::run_command("npm config get registry 2>/dev/null") {
+                if !reg.is_empty() && !reg.contains("undefined") {
+                    npm_registry = reg;
+                }
+            }
+        }
+        if npm_registry.is_empty() {
+            npm_registry = "https://registry.npmjs.org/".to_string();
+        }
+
+        // 2. 读取 nvm mirror
+        let mut nvm_mirror = String::new();
+        let zshrc_path = home.join(".zshrc");
+        if zshrc_path.exists() {
+            if let Ok(content) = fs::read_to_string(&zshrc_path) {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("export NVM_NODEJS_ORG_MIRROR=") {
+                        if let Some((_, val)) = trimmed.split_once('=') {
+                            let val = val.trim().trim_matches('"').trim_matches('\'');
+                            nvm_mirror = val.to_string();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if nvm_mirror.is_empty() {
+            nvm_mirror = std::env::var("NVM_NODEJS_ORG_MIRROR").unwrap_or_default();
+        }
+        if nvm_mirror.is_empty() {
+            nvm_mirror = "https://nodejs.org/dist".to_string();
+        }
+
+        Ok(NodeMirrors {
+            npm_registry,
+            nvm_node_mirror: nvm_mirror,
+        })
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+/// 设置 npm registry
+#[tauri::command]
+pub async fn set_npm_registry(registry: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let registry = registry.trim();
+        if registry.is_empty() {
+            return Err("镜像源地址不能为空".to_string());
+        }
+
+        let home = dirs::home_dir().unwrap_or_default();
+        let npmrc_path = home.join(".npmrc");
+
+        // 1. 同步写入 ~/.npmrc
+        let mut new_lines = Vec::new();
+        let mut replaced = false;
+        if npmrc_path.exists() {
+            if let Ok(content) = fs::read_to_string(&npmrc_path) {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("registry=") || trimmed.starts_with("registry =") {
+                        new_lines.push(format!("registry={}", registry));
+                        replaced = true;
+                    } else {
+                        new_lines.push(line.to_string());
+                    }
+                }
+            }
+        }
+        if !replaced {
+            new_lines.push(format!("registry={}", registry));
+        }
+        let _ = fs::write(&npmrc_path, new_lines.join("\n") + "\n");
+
+        // 2. 通过 npm 命令行同步
+        let cmd = format!("npm config set registry {}", registry);
+        let _ = crate::shell::ShellExecutor::run_command(&cmd);
+
+        Ok(format!("npm 镜像源已设置为: {}", registry))
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+/// 设置 nvm node 下载镜像 (NVM_NODEJS_ORG_MIRROR)
+#[tauri::command]
+pub async fn set_nvm_mirror(mirror: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let mirror = mirror.trim();
+        if mirror.is_empty() {
+            return Err("nvm 镜像地址不能为空".to_string());
+        }
+
+        let home = dirs::home_dir().unwrap_or_default();
+        let zshrc_path = home.join(".zshrc");
+
+        let mut lines = Vec::new();
+        let mut replaced = false;
+        if zshrc_path.exists() {
+            if let Ok(content) = fs::read_to_string(&zshrc_path) {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("export NVM_NODEJS_ORG_MIRROR=") {
+                        lines.push(format!("export NVM_NODEJS_ORG_MIRROR=\"{}\"", mirror));
+                        replaced = true;
+                    } else {
+                        lines.push(line.to_string());
+                    }
+                }
+            }
+        }
+
+        if !replaced {
+            lines.push(format!("\n# NVM Node.js Mirror\nexport NVM_NODEJS_ORG_MIRROR=\"{}\"", mirror));
+        }
+
+        fs::write(&zshrc_path, lines.join("\n") + "\n")
+            .map_err(|e| format!("写入 ~/.zshrc 失败: {}", e))?;
+
+        // 设置当前进程环境变量
+        unsafe {
+            std::env::set_var("NVM_NODEJS_ORG_MIRROR", mirror);
+        }
+
+        Ok(format!("nvm 镜像已设置为: {}", mirror))
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
 }
 
 // ── Profile management ──────────────────────────────────────────────

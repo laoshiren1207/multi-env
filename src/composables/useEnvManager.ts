@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import type { RuntimeInfo, Profile, SwitchResult } from "../types";
+import type { RuntimeInfo, Profile, SwitchResult, NodeMirrors } from "../types";
 
 export function useEnvManager() {
   const runtimes = ref<RuntimeInfo[]>([]);
@@ -107,6 +107,27 @@ export function useEnvManager() {
     }
   };
 
+  const installingManager = ref<Record<string, boolean>>({});
+
+  const installManager = async (
+    manager: string
+  ): Promise<{ success: boolean; message: string }> => {
+    installingManager.value[manager] = true;
+    error.value = null;
+    try {
+      const msg = await invoke<string>("install_manager", { manager });
+      await fetchRuntimes();
+      return { success: true, message: msg };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      error.value = message;
+      console.error(`Failed to install manager ${manager}:`, err);
+      return { success: false, message };
+    } finally {
+      installingManager.value[manager] = false;
+    }
+  };
+
   const fetchProfiles = async (): Promise<Profile[]> => {
     error.value = null;
     try {
@@ -166,18 +187,99 @@ export function useEnvManager() {
     }
   };
 
+  const nodeMirrors = ref<NodeMirrors>({
+    npm_registry: "",
+    nvm_node_mirror: "",
+  });
+  const settingMirror = ref<boolean>(false);
+
+  const fetchNodeMirrors = async (): Promise<NodeMirrors> => {
+    try {
+      const data = await invoke<NodeMirrors>("get_node_mirrors");
+      nodeMirrors.value = data;
+      return data;
+    } catch (err: unknown) {
+      console.error("Failed to fetch node mirrors:", err);
+      return nodeMirrors.value;
+    }
+  };
+
+  const setNpmRegistry = async (
+    registry: string
+  ): Promise<{ success: boolean; message: string }> => {
+    settingMirror.value = true;
+    error.value = null;
+    try {
+      const msg = await invoke<string>("set_npm_registry", { registry });
+      await fetchNodeMirrors();
+      return { success: true, message: msg };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      error.value = message;
+      return { success: false, message };
+    } finally {
+      settingMirror.value = false;
+    }
+  };
+
+  const setNvmMirror = async (
+    mirror: string
+  ): Promise<{ success: boolean; message: string }> => {
+    settingMirror.value = true;
+    error.value = null;
+    try {
+      const msg = await invoke<string>("set_nvm_mirror", { mirror });
+      await fetchNodeMirrors();
+      return { success: true, message: msg };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      error.value = message;
+      return { success: false, message };
+    } finally {
+      settingMirror.value = false;
+    }
+  };
+
+  const setBothNodeMirrors = async (
+    registry: string,
+    mirror: string
+  ): Promise<{ success: boolean; message: string }> => {
+    settingMirror.value = true;
+    error.value = null;
+    try {
+      await invoke<string>("set_npm_registry", { registry });
+      await invoke<string>("set_nvm_mirror", { mirror });
+      await fetchNodeMirrors();
+      return { success: true, message: "OK" };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      error.value = message;
+      return { success: false, message };
+    } finally {
+      settingMirror.value = false;
+    }
+  };
+
   return {
     runtimes,
     profiles,
+    nodeMirrors,
+    settingMirror,
     loading,
     switching,
     installing,
     uninstalling,
+    installingManager,
     error,
     fetchRuntimes,
+    fetchNodeMirrors,
+    setNpmRegistry,
+    setNvmMirror,
+    setBothNodeMirrors,
     switchVersion,
     installVersion,
     uninstallVersion,
+    installManager,
     fetchProfiles,
     saveProfile,
     deleteProfile,

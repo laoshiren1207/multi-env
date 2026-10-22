@@ -25,37 +25,19 @@
 
 ## ✨ 功能特性
 
-- 🍏 **原生 macOS 系统设置（System Settings）设计语言**：
-  - 严格像素级复刻 macOS Ventura / Sonoma / Sequoia 原生系统设置双栏布局与卡片致密排版。
-  - 实时联动 macOS 系统深色/浅色外观切换（Dark/Light Mode）。
-  - **智能 Overlay 滚动条**：静止或切换面板时完全隐形，仅在滚动中平滑浮现，停滚自动隐退。
-  - 无边框平滑窗口拖拽，完美避让原生交通灯按钮；支持快捷键聚焦搜索。
+- 🔄 **多运行时版本极速切换**：
+  - **Java (SDKMAN)**：毫秒级切换全局 JDK 版本，无需重启终端。
+  - **Node.js (nvm)**：一键即时切换全局 Node.js 版本。
+  - **Python (uv)**：基于 `uv` 极速切换 Python 运行版本。
+  - 支持后台下载安装新版本与安全卸载。
 
-- ☕ **Java (SDKMAN) 版本管理**：
-  - 自动发现 `~/.sdkman/candidates/java` 下安装的 JDK（Zulu、Temurin、Oracle 等）。
-  - 原子级 Symlink 瞬间切换，0 延迟、无需等待终端重启。
-  - 支持后台下载安装新版本，卸载支持原生 macOS 警示二次确认弹窗。
+- 📋 **环境预设组合方案 (Profiles)**：
+  - 将 Java、Node.js 与 Python 版本绑定为一个项目专属预设（如 *全栈项目 A*、*老项目 Spring Boot 2 + Node 16*）。
+  - 一键切换全套开发环境，免去逐个调整的繁琐操作。
+  - 快捷增删改查环境方案。
 
-- ⬢ **Node.js (nvm) 版本管理**：
-  - 极速扫描 `~/.nvm/versions/node` 中已安装的版本。
-  - 通过写入 `~/.nvm/alias/default` 实现全局即时切换。
-  - 提供常用 LTS 版本（22、20、18 等）一键快捷安装。
-
-- 🐍 **Python (uv) 版本管理**：
-  - 基于 Astral 开发的超高速 Python 包/运行时管理器 `uv`。
-  - 通过全局 `~/.python-version` 软链接与环境配置实现极速版本切换。
-  - 支持后台免阻塞安装与安全卸载。
-
-- 📋 **环境组合预设方案 (Profiles)**：
-  - 将 Java、Node.js 与 Python 版本绑定为一个预设组合（如 *全栈项目 A*、*老项目 Spring Boot 2 + Node 16*）。
-  - 像素级还原 macOS 原生绿色 Switch 开关，一键切换全套运行时版本。
-  - 底部提供标准的 `+` / `—` 工具条，支持增删改查。
-  - 预设数据保存在本地标准的 `~/.config/multi-env/profiles.json` 中。
-
-- 🌐 **全量国际化（i18n）双语支持**：
-  - 支持 **简体中文** 与 **English**。
-  - 顶栏右侧提供 `🌐 EN / 中` 快捷切换按钮，同时可在「关于与设置」面板中随时更改。
-  - 自动检测系统首选语言，并在本地持久化保存用户的语言偏好。
+- 🌐 **双语国际化支持**：
+  - 支持简体中文与 English 实时自由切换。
 
 ---
 
@@ -116,7 +98,7 @@ multi-env/
 │   ├── components/           # UI 组件 (ProfileForm 表单、StatusNotification 通知等)
 │   ├── composables/          # EnvManager IPC 交互组合式函数 (useEnvManager)
 │   ├── i18n/                 # 响应式国际化核心（中英文字典与切换逻辑）
-│   ├── styles/               # TailwindCSS v4 与 macOS 原生滚动条样式
+│   ├── styles/               # TailwindCSS v4 样式
 │   ├── types/                # TypeScript 类型声明
 │   ├── App.vue               # macOS 设置风格双栏主界面
 │   └── main.ts               # 前端入口与系统暗色模式监听

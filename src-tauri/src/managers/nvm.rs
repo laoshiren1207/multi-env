@@ -159,7 +159,32 @@ impl EnvManager for NvmManager {
     }
 
     fn install_version(&self, version: &str) -> Result<String, String> {
-        let cmd = format!("source {} && nvm install {}", self.nvm_dir.join("nvm.sh").to_string_lossy(), version.trim());
+        let mut mirror_env = String::new();
+        let home = dirs::home_dir().unwrap_or_default();
+        let zshrc_path = home.join(".zshrc");
+        if let Ok(content) = fs::read_to_string(&zshrc_path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("export NVM_NODEJS_ORG_MIRROR=") {
+                    mirror_env = format!("{} && ", trimmed);
+                    break;
+                }
+            }
+        }
+        if mirror_env.is_empty() {
+            if let Ok(env_mirror) = std::env::var("NVM_NODEJS_ORG_MIRROR") {
+                if !env_mirror.is_empty() {
+                    mirror_env = format!("export NVM_NODEJS_ORG_MIRROR=\"{}\" && ", env_mirror);
+                }
+            }
+        }
+
+        let cmd = format!(
+            "{}source {} && nvm install {}",
+            mirror_env,
+            self.nvm_dir.join("nvm.sh").to_string_lossy(),
+            version.trim()
+        );
         let output = crate::shell::ShellExecutor::run_command(&cmd)
             .map_err(|e| format!("nvm install 执行失败: {}", e))?;
         Ok(format!("成功安装 Node.js {}: {}", version, output))

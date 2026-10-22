@@ -13,6 +13,22 @@ impl UvManager {
     pub fn new() -> Self {
         Self
     }
+
+    fn get_uv_bin(&self) -> String {
+        let home = dirs::home_dir().unwrap_or_default();
+        let paths = [
+            home.join(".local/bin/uv"),
+            home.join(".cargo/bin/uv"),
+            std::path::PathBuf::from("/opt/homebrew/bin/uv"),
+            std::path::PathBuf::from("/usr/local/bin/uv"),
+        ];
+        for p in &paths {
+            if p.exists() {
+                return p.to_string_lossy().to_string();
+            }
+        }
+        "uv".to_string()
+    }
 }
 
 impl EnvManager for UvManager {
@@ -33,12 +49,20 @@ impl EnvManager for UvManager {
     }
 
     fn is_available(&self) -> bool {
-        ShellExecutor::run_command("uv --version").is_ok()
+        let uv_bin = self.get_uv_bin();
+        if uv_bin != "uv" {
+            return true;
+        }
+        ShellExecutor::run_command("export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:$PATH\" && uv --version").is_ok()
     }
 
     fn list_installed(&self) -> Result<Vec<RuntimeVersion>, String> {
-        let output = ShellExecutor::run_command("uv python list 2>/dev/null")
-            .map_err(|e| format!("Failed to list Python versions: {}", e))?;
+        let uv_bin = self.get_uv_bin();
+        let cmd = format!("export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:$PATH\" && {} python list 2>/dev/null", uv_bin);
+        let output = match ShellExecutor::run_command(&cmd) {
+            Ok(out) => out,
+            Err(_) => return Ok(Vec::new()),
+        };
 
         // Parse lines like:
         //   cpython-3.13.3-macos-aarch64-none  /opt/homebrew/bin/python3.13 -> ...
@@ -125,7 +149,8 @@ impl EnvManager for UvManager {
     }
 
     fn install_version(&self, version: &str) -> Result<String, String> {
-        let cmd = format!("uv python install {}", version.trim());
+        let uv_bin = self.get_uv_bin();
+        let cmd = format!("export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:$PATH\" && {} python install {}", uv_bin, version.trim());
         let output = ShellExecutor::run_command(&cmd)
             .map_err(|e| format!("uv python install 失败: {}", e))?;
         Ok(format!("成功安装 Python {}: {}", version, output))
@@ -137,7 +162,8 @@ impl EnvManager for UvManager {
             return Err("无法卸载当前激活使用的 Python 版本，请先切换至其他版本！".to_string());
         }
 
-        let cmd = format!("uv python uninstall {}", version.trim());
+        let uv_bin = self.get_uv_bin();
+        let cmd = format!("export PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:$PATH\" && {} python uninstall {}", uv_bin, version.trim());
         let output = ShellExecutor::run_command(&cmd)
             .map_err(|e| format!("uv python uninstall 失败: {}", e))?;
         Ok(format!("已成功卸载 Python {}: {}", version, output))

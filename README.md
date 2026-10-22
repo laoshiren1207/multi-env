@@ -25,37 +25,19 @@
 
 ## ✨ Features
 
-- 🍏 **Native macOS System Settings Aesthetics**:
-  - Two-pane compact sidebar layout strictly modeled after modern macOS System Settings.
-  - Inset grouped cards, refined micro-typography, and seamless window dragging.
-  - Real-time automatic Light / Dark mode synchronization with system appearance.
-  - **Smart Overlay Scrollbars**: Completely invisible when idle or browsing; smoothly appears only while actively scrolling.
-  - **⌘F Quick Search**: Instantly filter runtimes, versions, and presets.
-
-- ☕ **Java (SDKMAN) Management**:
-  - Automatically scans installed JDKs in `~/.sdkman/candidates/java`.
-  - Zero-latency version switching via atomic symlink updates.
-  - Background installation and uninstallation with secondary confirmation dialogs.
-
-- ⬢ **Node.js (nvm) Management**:
-  - Scans versions installed in `~/.nvm/versions/node`.
-  - Instant default version switching by updating `~/.nvm/alias/default`.
-  - Install new versions or uninstall obsolete releases effortlessly.
-
-- 🐍 **Python (uv) Management**:
-  - High-performance Python runtime management powered by Astral's `uv`.
-  - Global runtime switching via `~/.python-version`.
-  - One-click downloads for popular Python releases (3.12, 3.11, etc.).
+- 🔄 **Multi-Runtime Version Switching**:
+  - **Java (SDKMAN)**: Switch global JDK versions instantly without restarting your terminal.
+  - **Node.js (nvm)**: Switch Node.js versions on the fly.
+  - **Python (uv)**: Fast Python version switching powered by `uv`.
+  - Background installation and uninstallation of runtime versions.
 
 - 📋 **Environment Presets (Profiles)**:
-  - Bundle Java, Node.js, and Python versions into unified environment sets (e.g. *Fullstack Project A*, *Legacy Spring Boot 2 + Node 16*).
-  - One-click preset switching with native macOS green toggle switches.
-  - Add, edit, and delete presets with intuitive `+` / `—` toolbar controls.
-  - Configurations stored locally and cleanly in `~/.config/multi-env/profiles.json`.
+  - Combine specific Java, Node.js, and Python versions into one-click profiles (e.g. *Fullstack Project A*, *Legacy Spring Boot 2 + Node 16*).
+  - Switch entire development environments with a single toggle.
+  - Easily add, edit, and manage custom presets.
 
-- 🌐 **Built-in Internationalization (i18n)**:
-  - Toggle between **English** and **简体中文** in real-time from the header button (`🌐 EN / 中`) or settings.
-  - Automatically detects system locale and persists language preference.
+- 🌐 **Bilingual Support (i18n)**:
+  - Switch between **English** and **简体中文** anytime.
 
 ---
 
@@ -116,7 +98,7 @@ multi-env/
 │   ├── components/           # UI Components (ProfileForm, StatusNotification, etc.)
 │   ├── composables/          # EnvManager IPC composables (useEnvManager)
 │   ├── i18n/                 # Reactive i18n module (English & 简体中文)
-│   ├── styles/               # TailwindCSS v4 and native macOS overlay scrollbars
+│   ├── styles/               # TailwindCSS v4 styles
 │   ├── types/                # TypeScript interface definitions
 │   ├── App.vue               # Main macOS Settings two-pane layout
 │   └── main.ts               # App entry and system dark mode listener
